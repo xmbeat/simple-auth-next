@@ -25,7 +25,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
     class AuthUser extends library.Model {
 
         async verifyPassword(password) {
-            return bcrypt.compareSync(password, this.User.password)
+            return await bcrypt.compare(password, this.User.password)
         }
 
         async login(sessionName) {
