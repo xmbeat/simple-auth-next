@@ -185,7 +185,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
         //TODO: check for max login attempts and block user if too many attempts
         await authUser.checkForMaxLoginAttempts();
 
-        if (!authUser.verifyPassword(credentials.password)) {
+        if (!(await authUser.verifyPassword(credentials.password))) {
             throw { message: "Wrong password" }
         }
 
