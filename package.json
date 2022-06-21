@@ -1,6 +1,6 @@
 {
   "name": "simple-auth-next",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "simple authentication for next.js using sequelize as a storage.",
   "main": "src/index",
   "scripts": {

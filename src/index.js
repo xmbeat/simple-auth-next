@@ -207,7 +207,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
         let authUser = await authenticate({ email, password, otp });
         //User has been authenticated, create a session for the user
         let { token } = await authUser.login();
-        let user = await authUser.getUser({ attributes: ['id', 'email', 'name'] });
+        let user = await authUser.getUser({ attributes: ['id', 'email'] });
         return res.json({ token, user });
     }
 
