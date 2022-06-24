@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const twofactor = require("node-2fa");
 
-const authFactory = ({ library, sequelize, userModel, options }) => {
+const authFactory = ({ library, sequelize, userModel, options = {expiration: "1d"} }) => {
 
     let session = null;
     const getAuthUser = () => {
@@ -34,7 +34,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
             this.lastLoginAt = new Date();
             let session = await this.createSession({ name: sessionName });
             await this.save();
-            let token = jwt.sign(session.toJSON(), options.jwtSecret, { expiresIn: '1d' })
+            let token = jwt.sign(session.toJSON(), options.jwtSecret, { expiresIn: options.expiration })
             return { token, session };
         }
 
@@ -55,6 +55,9 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
         }
 
         async checkForSessions() {
+            if (options.maxSessionsPerUser == null){
+                return;
+            }
             let sessions = await Session.findAll({
                 where: {
                     authUserId: this.id
@@ -149,7 +152,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
             if (session) {
                 req.session = session
                 req.authUser = session.authUser
-                req.user = session.authUser.user;
+                req.user = session.authUser.User;
                 setSession(session);
             }
             else {
@@ -172,16 +175,12 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
             throw { message: "User not found" }
         }
 
+        let authUser = await AuthUser.findOne({where: {userId: user.id}, include: {mode: userModel}});
+        if (!authUser){
+            authUser = await AuthUser.create({userId: user.id})
+            authUser = await AuthUser.findOne({where: {userId: user.id}, include: {mode: userModel}});
+        }
 
-        let [authUser, created] = await AuthUser.findOrCreate({
-            where: { userId: user.id },
-            defaults: {
-                userId: user.id
-            },
-            include: {
-                model: userModel
-            }
-        })
         //TODO: check for max login attempts and block user if too many attempts
         await authUser.checkForMaxLoginAttempts();
 
@@ -264,6 +263,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
 
     return {
         AuthUser,
+        Session,
         middleware,
         authenticate,
         getAuthUser,
