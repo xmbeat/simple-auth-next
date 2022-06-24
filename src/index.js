@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const twofactor = require("node-2fa");
 
-const authFactory = ({ library, sequelize, userModel, options = {expiration: "1d"} }) => {
+const authFactory = ({ library, sequelize, userModel, options }) => {
 
     let session = null;
     const getAuthUser = () => {
@@ -34,6 +34,7 @@ const authFactory = ({ library, sequelize, userModel, options = {expiration: "1d
             this.lastLoginAt = new Date();
             let session = await this.createSession({ name: sessionName });
             await this.save();
+            console.log(options)
             let token = jwt.sign(session.toJSON(), options.jwtSecret, { expiresIn: options.expiration })
             return { token, session };
         }
@@ -175,10 +176,10 @@ const authFactory = ({ library, sequelize, userModel, options = {expiration: "1d
             throw { message: "User not found" }
         }
 
-        let authUser = await AuthUser.findOne({where: {userId: user.id}, include: {mode: userModel}});
+        let authUser = await AuthUser.findOne({where: {userId: user.id}, include: {model: userModel}});
         if (!authUser){
             authUser = await AuthUser.create({userId: user.id})
-            authUser = await AuthUser.findOne({where: {userId: user.id}, include: {mode: userModel}});
+            authUser = await AuthUser.findOne({where: {userId: user.id}, include: {model: userModel}});
         }
 
         //TODO: check for max login attempts and block user if too many attempts
