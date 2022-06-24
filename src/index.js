@@ -41,7 +41,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
 
         async enable2FA() {
             if (this.confirmed2FA) {
-                throw { message: "2FA is already enabled" }
+                throw { message: "2FA is already enabled", error_code: 400}
             }
             let secret = twofactor.generateSecret({ name: options.appName, account: this.User.email });
             this.secret2FA = secret.secret;
@@ -71,7 +71,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
                 sessionCount--;
             }
             if (sessions && sessionCount >= options.maxSessionsPerUser) {
-                throw { message: "Max sessions reached, you need to logout in some other device" }
+                throw { message: "Max sessions reached, you need to logout in some other device", error_code: 401 }
             }
         }
 
@@ -81,11 +81,11 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
 
         async confirm2FA(otp) {
             if (!this.secret2FA) {
-                throw { message: "You need to enable 2fa before to confirm" }
+                throw { message: "You need to enable 2fa before to confirm",  error_code: 400 }
             }
 
             if (this.confirmed2FA) {
-                throw { message: "2FA is already enabled" }
+                throw { message: "2FA is already enabled", error_code: 400 }
             }
             this.verifyOTP(otp);
             this.confirmed2FA = true;
@@ -95,10 +95,10 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
         verifyOTP(otp) {
             let verified = twofactor.verifyToken(this.secret2FA, otp, 2);
             if (!verified) {
-                throw { message: "Invalid OTP" }
+                throw { message: "Invalid OTP", error_code: 400}
             }
             if (verified.delta < 0) {
-                throw { message: "OTP is expired" }
+                throw { message: "OTP is expired", error_code: 400 }
             }
         }
     }
@@ -140,7 +140,13 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
 
         if (token) {
             token = token.replace('Bearer ', '')
-            const decoded = jwt.verify(token, options.jwtSecret)
+            let decoded = null;
+            try{
+                decoded = jwt.verify(token, options.jwtSecret)
+            }
+            catch(error){
+                throw {message: error.message, error_code: 401}
+            } 
 
             const session = await Session.findByPk(decoded.id, {
                 include: {
@@ -173,7 +179,7 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
         })
 
         if (!user) {
-            throw { message: "User not found" }
+            throw { message: "User not found", error_code: 400}
         }
 
         let authUser = await AuthUser.findOne({where: {userId: user.id}, include: {model: userModel}});
@@ -186,13 +192,13 @@ const authFactory = ({ library, sequelize, userModel, options }) => {
         await authUser.checkForMaxLoginAttempts();
 
         if (!(await authUser.verifyPassword(credentials.password))) {
-            throw { message: "Wrong password" }
+            throw { message: "Wrong password", error_code: 400}
         }
 
         //Check for 2FA
         if (authUser.confirmed2FA) {
             if (!credentials.otp) {
-                throw { message: "2FA is enabled, you need to provide an OTP" }
+                throw { message: "2FA is enabled, you need to provide an OTP", error_code: 400}
             }
             await authUser.verifyOTP(credentials.otp);
         }
